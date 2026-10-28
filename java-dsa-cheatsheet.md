@@ -1,6 +1,6 @@
 # Java DSA cheat sheet
 
-The rest of the old Pages “Java Cheat Sheets” file: language tricks, regex, graphs, DP, binary search. Collections Big-O lives in [`java-collections.md`](java-collections.md).
+The rest of the old Pages “Java Cheat Sheets” file: language tricks, regex, graphs, and DP. Binary search is documented separately in [`binary-search.md`](binary-search.md). Collections Big-O lives in [`java-collections.md`](java-collections.md).
 
 ## Arrays and strings
 
@@ -251,59 +251,6 @@ If denominations are fixed (1, 10, 25), greedy by largest coin is often enough.
 
 **0/1 knapsack:** `dp[i][j]` = best value using first `i` items with capacity `j`. Skip item `i` if `weight[i] > j`; else `max(skip, value[i] + dp[i-1][j - weight[i]])`.
 
-## Binary search
-
-Three loop shapes (LeetCode templates):
-
-**Template 1 — `left <= right`**  
-Standard find. Condition does not need neighbors. Loop can return immediately. Empty range ⇒ not found.
-
-```java
-int left = 0, right = n - 1;
-while (left <= right) {
-    int mid = left + (right - left) / 2;
-    if (nums[mid] == target) return mid;
-    if (nums[mid] < target) left = mid + 1;
-    else right = mid - 1;
-}
-// right + 1 == left; no candidate
-```
-
-**Template 2 — `left < right`**  
-Need the element to the right of `mid`. Search space stays size ≥ 2. One candidate left; post-process.
-
-```java
-int left = 0, right = n;
-while (left < right) {
-    int mid = left + (right - left) / 2;
-    if (nums[mid] < target) left = mid + 1;
-    else right = mid;
-}
-```
-
-**Template 3 — `left + 1 < right`**  
-Need both neighbors. Two candidates left; post-process.
-
-```java
-int left = 0, right = n - 1;
-while (left + 1 < right) {
-    int mid = left + (right - left) / 2;
-    if (nums[mid] < target) left = mid;
-    else right = mid;
-}
-```
-
-| Task | Idea |
-| --- | --- |
-| Insert position | Standard search; return `left` |
-| Closest value | After search, compare `left` / `right` (bounds check) |
-| Rotation index | If `mid > mid+1`, return `mid+1` |
-| Rotated search | If left..mid sorted, see if target is there; else the right half |
-| Rotated + duplicates | If `left == mid == right`, shrink `left++` / `right--` (`[3,1,2,3,3,3,3]`) |
-| Min in rotated (no dups) | If `left < right` no rotation; else drop the sorted half |
-
-Lower / upper bound notes: [Binary search lower and upper bound](https://medium.com/swlh/binary-search-find-upper-and-lower-bound-3f07867d81fb)
-
 ## Sorting reminder
 
 Bubble sort: adjacent swaps, largest sinks to the end. Stop early if a pass has no swaps; inner loop can ignore the sorted tail.
@@ -316,7 +263,6 @@ Bubble sort: adjacent swaps, largest sinks to the end. Stop early if a pass has 
 - [Graph for beginners](https://leetcode.com/discuss/general-discussion/655708/Graph-For-Beginners-Problems-or-Pattern-or-Sample-Solutions)
 - [Questions by pattern](https://leetcode.com/discuss/interview-question/448285/List-of-questions-sorted-by-common-patterns)
 - [Trie template](https://leetcode.com/discuss/general-discussion/680706/article-on-trie-general-template-and-list-of-problems)
-- [Binary search for beginners](https://leetcode.com/discuss/general-discussion/691825/binary-search-for-beginners-problems-patterns-sample-solutions)
 - [Sliding window](https://leetcode.com/discuss/general-discussion/657507/Sliding-Window-for-Beginners-Problems-or-Template-or-Sample-Solutions)
 - [Substring window template](https://leetcode.com/problems/minimum-window-substring/discuss/26808/Here-is-a-10-line-template-that-can-solve-most-'substring'-problems)
 - [Monotonic queue](https://medium.com/algorithms-and-leetcode/monotonic-queue-explained-with-leetcode-problems-7db7c530c1d6)
