@@ -19,9 +19,22 @@ while (left <= right) {
 return -1;
 ```
 
-### Boundary search: `left < right`
+### Lower bound and upper bound: `left < right`
 
-Use a half-open range `[left, right)` to find an insertion position, such as the first element greater than or equal to a target. This is the lower-bound pattern.
+These are boundary searches over a sorted array, using the half-open range `[left, right)` (the left endpoint is included; the right endpoint is excluded):
+
+- **Lower bound** is the first index whose value is **greater than or equal to** `target` (`nums[i] >= target`). If no value meets that condition, it is `nums.length`.
+- **Upper bound** is the first index whose value is **strictly greater than** `target` (`nums[i] > target`). If no value meets that condition, it is `nums.length`.
+
+Both return insertion positions. Lower bound inserts before existing equal values; upper bound inserts after them.
+
+**Remember:**
+
+- Lower bound uses `< target` to move `left` right.
+- Upper bound uses `<= target` to move `left` right.
+- The difference `upperBound - lowerBound` is the number of occurrences of `target`.
+
+For lower bound:
 
 ```java
 int left = 0, right = nums.length;
@@ -36,14 +49,22 @@ return left;
 
 Example: for `[1, 3, 3, 5, 8]`, lower bound of `3` is index `1`; lower bound of `4` is index `3`, its insertion position; lower bound of `9` is `5` (`nums.length`).
 
-To find the upper bound—the first index with a value greater than `target`—change the condition to `nums[mid] <= target`:
+For upper bound, use this condition inside the same loop:
 
 ```java
 if (nums[mid] <= target) left = mid + 1;
 else right = mid;
 ```
 
-Lower and upper bounds are useful for duplicates: the first occurrence is the lower bound, the last occurrence is one before the upper bound, and their difference gives the number of occurrences.
+In the same example, upper bound of `3` is index `3`, just after the two `3`s. The first occurrence is the lower bound; the last occurrence is one before the upper bound. `upperBound - lowerBound` gives the number of occurrences.
+
+#### Why set `right = mid` instead of `mid - 1`?
+
+When the condition says `nums[mid]` is at or beyond the boundary, `mid` may itself be the first qualifying index. Setting `right = mid` keeps that possible answer in the search range while narrowing the range. Setting `right = mid - 1` would discard it. This works with the half-open range `[left, right)`; the excluded endpoint is `right`, not `mid`.
+
+**Remember:** in a boundary search, keep `mid` when it could be the answer (`right = mid`). Move past it only when it cannot be the answer (`left = mid + 1`).
+
+By contrast, exact-match search above uses the inclusive range `[left, right]`. There, when `nums[mid]` is not the target, it can safely discard `mid` with `right = mid - 1` (or `left = mid + 1`).
 
 ### Neighbor search: `left + 1 < right`
 
