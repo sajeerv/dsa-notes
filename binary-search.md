@@ -27,13 +27,14 @@ These are boundary searches over a sorted array, using the half-open range `[lef
 - **Upper bound** is the first index whose value is **strictly greater than** `target` (`nums[i] > target`). If no value meets that condition, it is `nums.length`.
 
 - Both return insertion positions. Lower bound inserts before existing equal values; upper bound inserts after them.
+- The difference `upperBound - lowerBound` is the number of occurrences of `target`.
+- The first occurrence is the lower bound; the last occurrence is one before the upper bound. 
 
 **Remember:**
 
 - Lower bound uses `< target` to move `left` right.
 - Upper bound uses `<= target` to move `left` right.
-- The difference `upperBound - lowerBound` is the number of occurrences of `target`.
-- The first occurrence is the lower bound; the last occurrence is one before the upper bound. 
+
 
 For lower bound:
 
