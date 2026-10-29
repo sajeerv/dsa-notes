@@ -51,6 +51,19 @@ return left;
 
 Example: for `[1, 3, 3, 5, 8]`, lower bound of `3` is index `1`; lower bound of `4` is index `3`, its insertion position; lower bound of `9` is `5` (`nums.length`).
 
+#### Check whether the target exists
+
+The lower bound is an insertion position, so it may point to a larger value or to the end of the array. Check that the position is in range and its value equals the target:
+
+```java
+int index = lowerBound(nums, target);
+boolean found = index < nums.length && nums[index] == target;
+```
+
+For example, in `[1, 3, 5]`, lower bound of `4` is index `2`, but `nums[2]` is `5`, so `4` is not found. Lower bound of `8` is `3` (`nums.length`), so check the bounds before reading `nums[index]`.
+
+Upper bound alone points to the first value greater than the target, so use lower bound (or check the element just before upper bound) to test for an exact match.
+
 For upper bound, use this condition inside the same loop:
 
 ```java
