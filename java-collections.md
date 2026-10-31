@@ -306,7 +306,24 @@ bits.clear(index);
 
 ### Linked list / node-by-node sequence — custom nodes or `LinkedList`
 
-For problems that give you `ListNode` (reversing a list, merging lists, detecting a cycle), work with the provided nodes and pointers. Java's `LinkedList` is rarely the best choice for LeetCode: indexed access is O(n). For a sequence where you only need to add/remove at the ends, prefer `ArrayDeque`.
+For problems that give you `ListNode` (reversing a list, merging lists, detecting a cycle), work with the provided nodes and pointers. For a custom sequence, Java's `LinkedList<E>` is a doubly linked list that implements both `List<E>` and `Deque<E>`.
+
+```java
+LinkedList<Integer> list = new LinkedList<>();
+list.addFirst(x);
+list.addLast(y);
+Integer first = list.peekFirst(); // null if empty
+Integer last = list.peekLast();   // null if empty
+Integer removedFirst = list.pollFirst(); // null if empty
+Integer removedLast = list.pollLast();   // null if empty
+
+list.add(index, value); // insert at position; O(n) to reach it
+int value = list.get(index); // O(n)
+```
+
+**Use it when** you need a `List` that also supports both-end operations, or you already have an iterator at the position where you need to insert/remove. With an existing `ListIterator`, local insert/remove is O(1); finding that position by index still takes O(n).
+
+For most LeetCode tasks, use `ArrayList` for indexed access and `ArrayDeque` for stack/queue or end-only operations. `LinkedList` index access and search are O(n), and each node has extra memory overhead, so it is rarely the best default. For list problems that provide their own `ListNode`, operate on those nodes rather than wrapping them in Java's `LinkedList`.
 
 ## List complexity
 
