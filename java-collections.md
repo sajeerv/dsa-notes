@@ -24,13 +24,15 @@ Imported and cleaned from `Java Collections Cheat Sheets.pages`. Complexities ar
 
 ## LeetCode operations quick reference
 
+Organized by the **data structure you need**; each heading names the Java collection or representation to use.
+
 Common imports:
 
 ```java
 import java.util.*;
 ```
 
-### `ArrayList`
+### Resizable array / indexed sequence — `ArrayList`
 
 ```java
 List<Integer> list = new ArrayList<>();
@@ -49,7 +51,7 @@ Collections.sort(list, Comparator.reverseOrder());
 
 `get` / `set` are O(1); inserting or removing away from the end is O(n). For `List<Integer>`, `remove(1)` means remove index 1; use `remove(Integer.valueOf(1))` to remove the value 1.
 
-### `HashMap` — key/value lookup and frequency counts
+### Hash table for key/value lookup — `HashMap`
 
 ```java
 Map<Integer, Integer> map = new HashMap<>();
@@ -69,7 +71,7 @@ for (Map.Entry<Integer, Integer> entry : map.entrySet()) {
 
 Use `containsKey` or `getOrDefault` when a key might be absent; `get` can return `null`.
 
-### `HashSet` — membership and uniqueness
+### Hash table for membership / uniqueness — `HashSet`
 
 ```java
 Set<Integer> seen = new HashSet<>();
@@ -79,7 +81,7 @@ seen.remove(x);
 int n = seen.size();
 ```
 
-### `TreeSet` — sorted unique values and neighbors
+### Ordered set / sorted unique values — `TreeSet`
 
 ```java
 NavigableSet<Integer> sorted = new TreeSet<>();
@@ -99,7 +101,7 @@ Integer largestRemoved = sorted.pollLast();
 
 Neighbor methods return `null` if no such value exists. Add, remove, contains, and neighbor lookups are O(log n).
 
-### `PriorityQueue` — repeatedly take the smallest or largest
+### Heap / priority queue — `PriorityQueue`
 
 ```java
 PriorityQueue<Integer> minHeap = new PriorityQueue<>();
@@ -122,7 +124,7 @@ PriorityQueue<int[]> bySecond =
     new PriorityQueue<>((a, b) -> Integer.compare(a[1], b[1]));
 ```
 
-### `Queue` — FIFO processing
+### Queue / FIFO processing — `Queue` with `ArrayDeque`
 
 Use `ArrayDeque` as the usual queue implementation:
 
@@ -136,9 +138,9 @@ boolean empty = queue.isEmpty();
 
 `offer`, `peek`, and `poll` are O(1) amortized. `poll` / `peek` return `null` on an empty queue; `remove` / `element` throw instead. The paired methods are `add`/`offer` (insert), `remove`/`poll` (remove front), and `element`/`peek` (inspect front); the first in each pair throws on failure, the second returns a special value (`false` or `null`).
 
-### `Deque` / `ArrayDeque` — both ends, stack, or queue
+### Deque / both ends, stack, or queue — `Deque` with `ArrayDeque`
 
-**For stack (LIFO) operations, use `Deque` with `ArrayDeque`**—for example, `push`, `peek`, and `pop` below.
+**Use `Deque` with `ArrayDeque` for stack (LIFO) operations; don’t use the legacy `Stack` class.** For queue operations, use `offer`, `poll`, and `peek` as in the Queue section above.
 
 ```java
 Deque<Integer> deque = new ArrayDeque<>();
@@ -155,6 +157,156 @@ Integer popped = deque.pop(); // same as removeFirst; throws if empty
 ```
 
 `ArrayDeque` is a common choice for BFS queues, monotonic deques, and stacks. It does not allow `null` elements.
+
+#### Monotonic stack or deque — `Deque` with `ArrayDeque`
+
+Use when you need the next greater/smaller element or a sliding-window minimum/maximum. Keep candidate indices in increasing or decreasing value order by removing dominated indices from the end.
+
+```java
+Deque<Integer> indices = new ArrayDeque<>();
+for (int i = 0; i < nums.length; i++) {
+    while (!indices.isEmpty() && nums[indices.peekLast()] <= nums[i]) {
+        indices.pollLast();
+    }
+    // indices.peekLast() is the previous greater element's index, if any
+    indices.addLast(i);
+}
+```
+
+### Ordered map / sorted keys and ranges — `TreeMap`
+
+Use when keys must stay sorted or you need the closest key or a key range.
+
+```java
+NavigableMap<Integer, String> map = new TreeMap<>();
+map.put(key, value);
+Integer lowerKey = map.lowerKey(key);     // greatest key < key
+Integer floorKey = map.floorKey(key);     // greatest key <= key
+Integer ceilingKey = map.ceilingKey(key); // smallest key >= key
+Integer higherKey = map.higherKey(key);   // smallest key > key
+Map<Integer, String> range = map.subMap(from, true, to, false);
+```
+
+### Graph / adjacency list — `ArrayList` of neighbor lists
+
+For sparse graphs, store a neighbor list for each vertex. For weighted graphs, store edge objects or `int[]{neighbor, weight}`.
+
+```java
+int n = numberOfVertices;
+List<List<Integer>> graph = new ArrayList<>();
+for (int i = 0; i < n; i++) graph.add(new ArrayList<>());
+
+graph.get(u).add(v); // directed edge u -> v
+graph.get(v).add(u); // also add this edge for an undirected graph
+```
+
+For traversal, use `boolean[] visited`; use `Queue<Integer> queue = new ArrayDeque<>()` for BFS.
+
+### Disjoint sets / connectivity — Union-Find arrays
+
+Use to track connected components as edges are added. Store `parent` and `size` (or `rank`) in primitive arrays; combine path compression with union by size/rank.
+
+```java
+int[] parent = new int[n];
+int[] size = new int[n];
+for (int i = 0; i < n; i++) {
+    parent[i] = i;
+    size[i] = 1;
+}
+
+int find(int x) {
+    if (parent[x] != x) parent[x] = find(parent[x]);
+    return parent[x];
+}
+
+boolean union(int a, int b) {
+    int ra = find(a), rb = find(b);
+    if (ra == rb) return false;
+    if (size[ra] < size[rb]) { int t = ra; ra = rb; rb = t; }
+    parent[rb] = ra;
+    size[ra] += size[rb];
+    return true;
+}
+```
+
+Put `find` and `union` inside a class or a helper class; Java does not allow methods nested inside another method.
+
+### Trie / prefix tree — custom nodes
+
+Use for prefix search and word dictionaries. For lowercase English letters, a 26-child array is simple and compact:
+
+```java
+class TrieNode {
+    TrieNode[] children = new TrieNode[26];
+    boolean isWord;
+}
+```
+
+For larger or sparse alphabets, store children in a `Map<Character, TrieNode>` instead.
+
+### Binary tree / BST — custom nodes
+
+LeetCode usually provides a `TreeNode` class. Otherwise, define a node with a value and left/right references; use recursion or an explicit `Deque<TreeNode>` for traversals.
+
+```java
+class TreeNode {
+    int val;
+    TreeNode left, right;
+    TreeNode(int val) { this.val = val; }
+}
+```
+
+For a BST, the same node structure applies with the ordering rule (values in the left subtree are smaller; values in the right subtree are larger). For sorted key lookup with built-in operations, `TreeMap` / `TreeSet` are often more convenient.
+
+### Prefix sums, grids, and dense indexed data — primitive arrays
+
+Use primitive arrays when indexes are dense and known. Prefix sums make range-sum queries O(1) after O(n) preprocessing:
+
+```java
+long[] prefix = new long[n + 1];
+for (int i = 0; i < n; i++) prefix[i + 1] = prefix[i] + nums[i];
+long rangeSum = prefix[r + 1] - prefix[l]; // inclusive range l..r
+```
+
+For a grid, use `int[][]` / `char[][]`; use `boolean[][] visited` for traversal state, or mark cells in place when allowed.
+
+### Range-query tree — Fenwick tree or segment tree arrays
+
+When values change and you need many range-sum queries, a Fenwick tree is compact and supports point updates and prefix sums in O(log n):
+
+```java
+int[] bit = new int[n + 1]; // 1-indexed
+void add(int index, int delta) {
+    for (int i = index + 1; i < bit.length; i += i & -i) bit[i] += delta;
+}
+int prefixSum(int endExclusive) { // sum of original indices [0, endExclusive)
+    int sum = 0;
+    for (int i = endExclusive; i > 0; i -= i & -i) sum += bit[i];
+    return sum;
+}
+```
+
+Use a segment tree (usually a custom array-backed tree) for more general range queries and updates, such as range minimum/maximum or custom merge operations. For a static array with no updates, a prefix-sum array is simpler.
+
+### Bit set / flags — integer mask or `BitSet`
+
+Use an integer mask for a small fixed number of flags; use `BitSet` for a larger dynamic collection of bits.
+
+```java
+int mask = 0;
+mask |= 1 << bit;                        // set bit
+boolean isSet = (mask & (1 << bit)) != 0; // test bit
+mask &= ~(1 << bit);                     // clear bit
+
+BitSet bits = new BitSet();
+bits.set(index);
+boolean present = bits.get(index);
+bits.clear(index);
+```
+
+### Linked list / node-by-node sequence — custom nodes or `LinkedList`
+
+For problems that give you `ListNode` (reversing a list, merging lists, detecting a cycle), work with the provided nodes and pointers. Java's `LinkedList` is rarely the best choice for LeetCode: indexed access is O(n). For a sequence where you only need to add/remove at the ends, prefer `ArrayDeque`.
 
 ## List complexity
 
