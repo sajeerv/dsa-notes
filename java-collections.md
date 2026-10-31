@@ -22,6 +22,140 @@ Imported and cleaned from `Java Collections Cheat Sheets.pages`. Complexities ar
 | Iteration | No order | Insertion (or access) order | Sorted by key |
 | Null keys | Yes | Yes | No (keys are compared) |
 
+## LeetCode operations quick reference
+
+Common imports:
+
+```java
+import java.util.*;
+```
+
+### `ArrayList`
+
+```java
+List<Integer> list = new ArrayList<>();
+list.add(10);                 // append
+list.add(0, 5);               // insert at index; shifts later elements
+int value = list.get(0);
+list.set(0, 7);               // replace; returns old value
+list.remove(list.size() - 1); // remove by index
+list.remove(Integer.valueOf(10)); // remove by value
+boolean has = list.contains(7);
+int n = list.size();
+boolean empty = list.isEmpty();
+Collections.sort(list);       // ascending
+Collections.sort(list, Comparator.reverseOrder());
+```
+
+`get` / `set` are O(1); inserting or removing away from the end is O(n). For `List<Integer>`, `remove(1)` means remove index 1; use `remove(Integer.valueOf(1))` to remove the value 1.
+
+### `HashMap` — key/value lookup and frequency counts
+
+```java
+Map<Integer, Integer> map = new HashMap<>();
+map.put(key, value);
+int valueOrDefault = map.getOrDefault(key, 0);
+map.put(key, map.getOrDefault(key, 0) + 1); // frequency count
+map.merge(key, 1, Integer::sum);            // same frequency update
+boolean hasKey = map.containsKey(key);
+int value = map.get(key);                   // null if absent (for Integer values)
+map.remove(key);
+
+for (Map.Entry<Integer, Integer> entry : map.entrySet()) {
+    int k = entry.getKey();
+    int v = entry.getValue();
+}
+```
+
+Use `containsKey` or `getOrDefault` when a key might be absent; `get` can return `null`.
+
+### `HashSet` — membership and uniqueness
+
+```java
+Set<Integer> seen = new HashSet<>();
+boolean addedForFirstTime = seen.add(x); // false if x was already present
+boolean exists = seen.contains(x);
+seen.remove(x);
+int n = seen.size();
+```
+
+### `TreeSet` — sorted unique values and neighbors
+
+```java
+NavigableSet<Integer> sorted = new TreeSet<>();
+sorted.add(x);
+sorted.remove(x);
+boolean exists = sorted.contains(x);
+
+Integer lower = sorted.lower(x);       // greatest value < x
+Integer floor = sorted.floor(x);       // greatest value <= x
+Integer ceiling = sorted.ceiling(x);   // smallest value >= x
+Integer higher = sorted.higher(x);     // smallest value > x
+Integer first = sorted.first();        // smallest; throws if empty
+Integer last = sorted.last();          // largest; throws if empty
+Integer smallestRemoved = sorted.pollFirst();
+Integer largestRemoved = sorted.pollLast();
+```
+
+Neighbor methods return `null` if no such value exists. Add, remove, contains, and neighbor lookups are O(log n).
+
+### `PriorityQueue` — repeatedly take the smallest or largest
+
+```java
+PriorityQueue<Integer> minHeap = new PriorityQueue<>();
+minHeap.offer(x);             // add
+Integer smallest = minHeap.peek(); // inspect; null if empty
+Integer removed = minHeap.poll();  // remove smallest; null if empty
+
+PriorityQueue<Integer> maxHeap =
+    new PriorityQueue<>(Comparator.reverseOrder());
+maxHeap.offer(x);
+Integer largest = maxHeap.poll();
+```
+
+`offer` / `poll` are O(log n), `peek` is O(1). Iterating a `PriorityQueue` does **not** produce sorted order; repeatedly `poll` to consume values in priority order.
+
+For custom items, provide a comparator. Use `Integer.compare` / `Comparator.comparingInt` rather than subtracting values, which can overflow:
+
+```java
+PriorityQueue<int[]> bySecond =
+    new PriorityQueue<>((a, b) -> Integer.compare(a[1], b[1]));
+```
+
+### `Queue` — FIFO processing
+
+Use `ArrayDeque` as the usual queue implementation:
+
+```java
+Queue<Integer> queue = new ArrayDeque<>();
+queue.offer(x);          // add to back
+Integer front = queue.peek(); // inspect front; null if empty
+Integer removed = queue.poll(); // remove front; null if empty
+boolean empty = queue.isEmpty();
+```
+
+`offer`, `peek`, and `poll` are O(1) amortized. `poll` / `peek` return `null` on an empty queue; `remove` / `element` throw instead. The paired methods are `add`/`offer` (insert), `remove`/`poll` (remove front), and `element`/`peek` (inspect front); the first in each pair throws on failure, the second returns a special value (`false` or `null`).
+
+### `Deque` / `ArrayDeque` — both ends, stack, or queue
+
+**For stack (LIFO) operations, use `Deque` with `ArrayDeque`**—for example, `push`, `peek`, and `pop` below.
+
+```java
+Deque<Integer> deque = new ArrayDeque<>();
+deque.addFirst(x);       // or offerFirst
+deque.addLast(y);        // or offerLast
+Integer front = deque.peekFirst();
+Integer back = deque.peekLast();
+Integer firstRemoved = deque.pollFirst();
+Integer lastRemoved = deque.pollLast();
+
+deque.push(x);           // stack push: same as addFirst
+Integer top = deque.peek(); // stack top: same as peekFirst
+Integer popped = deque.pop(); // same as removeFirst; throws if empty
+```
+
+`ArrayDeque` is a common choice for BFS queues, monotonic deques, and stacks. It does not allow `null` elements.
+
 ## List complexity
 
 | Type | Add | Remove | Get | Contains | Next | Structure |
