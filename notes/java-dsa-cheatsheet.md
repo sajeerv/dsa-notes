@@ -44,10 +44,16 @@ s.split("[()]");                        // split on ( or )
 "/a/b/c".split("/");                    // ["", a, b, c]  leading empty
 p.replaceAll("\\W+", " ");              // non-word -> space
 "a:b:c".split(":");
+"google.co.in".split("\\."); // escape dot: split on literal periods
 ```
 
 Regex metacharacters that must be escaped if you mean the literal: `<([{\\^-=$!|]})?*+.>`  
-In a Java string the backslash itself is `\\\\`. Limit-`n` splits if you do not want empty tokens from repeated delimiters.
+In Java, `split(regex)` keeps empty elements between adjacent delimiters but drops trailing empty elements by default. Use a quantifier such as `:+` to collapse repeated delimiters, or `split(regex, -1)` to preserve trailing empty elements.
+
+```java
+"a::b".split(":+"); // ["a", "b"]
+":a:".split(":", -1); // ["", "a", ""]
+```
 
 Replace from the **end** when indexes would otherwise shift.
 
@@ -104,6 +110,10 @@ Replace from the **end** when indexes would otherwise shift.
 
 ## Matrix helpers
 
+### Traverse a matrix in all directions from a point
+
+The direction list below includes the current cell (`{0, 0}`) and all eight neighboring cells. Remove `{0, 0}` when you want neighbors only.
+
 ```java
 int[][] dirs = {
     {0, 0}, {0, -1}, {0, 1},
@@ -130,6 +140,7 @@ if (result > Integer.MAX_VALUE / 10
     // overflow
 }
 
+// For nonzero operands, the result is negative iff exactly one operand is negative.
 boolean differentSigns = (a < 0) != (b < 0);
 
 a = -a;          // not a * -1 (overflow at Integer.MIN_VALUE)
@@ -140,6 +151,10 @@ a += a;
 Integer.highestOneBit(n);
 Integer.lowestOneBit(n);
 ```
+
+### Sign of a multiplication or division result
+
+For nonzero operands, the result is negative exactly when one operand is negative. The expression `boolean differentSigns = (a < 0) != (b < 0);` checks that condition. Handle zero separately: a zero numerator or multiplication operand produces zero.
 
 Java `%`: sign follows the **dividend**. `x % y` equals `x % -y`.
 
@@ -319,4 +334,9 @@ Bubble sort: adjacent swaps, largest sinks to the end. Stop early if a pass has 
 - [Binary search for beginners](https://leetcode.com/discuss/general-discussion/691825/binary-search-for-beginners-problems-patterns-sample-solutions)
 - [Sliding window](https://leetcode.com/discuss/general-discussion/657507/Sliding-Window-for-Beginners-Problems-or-Template-or-Sample-Solutions)
 - [Substring window template](https://leetcode.com/problems/minimum-window-substring/discuss/26808/Here-is-a-10-line-template-that-can-solve-most-'substring'-problems)
+- [Monotonic queue notes](https://medium.com/@gregsh9.5/monotonic-queue-notes-980a019d5793)
 - [Monotonic queue](https://medium.com/algorithms-and-leetcode/monotonic-queue-explained-with-leetcode-problems-7db7c530c1d6)
+- [Best LeetCode posts of 2019](https://leetcode.com/discuss/general-discussion/459286/Best-Posts-of-2019)
+- [rand10 from rand7 discussion](https://leetcode.com/problems/implement-rand10-using-rand7/discuss/338395/In-depth-straightforward-detailed-explanation.-(Short-Java-solution))
+- [randM from randN discussion](https://leetcode.com/problems/implement-rand10-using-rand7/discuss/150301/Three-line-Java-solution-the-idea-can-be-generalized-to-%22Implement-RandM()-Using-RandN()%22)
+- [Interview preparation board](https://trello.com/b/9aEVpFw7/fb-onsite-prep)

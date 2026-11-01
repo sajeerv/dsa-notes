@@ -125,10 +125,21 @@ List<String> copy = new ArrayList<>();
 Collections.addAll(copy, a);
 
 List<Integer> fromValues = Arrays.asList(4, 5, 6);
+```
 
-// list -> array (works for any Collection)
+### Create an array from an ArrayList
+
+toArray(T[]) works for any Collection<T>. The returned array has the requested runtime type.
+
+```java
+List<Integer> al = new ArrayList<>();
+Collections.addAll(al, 10, 20, 30, 40);
 Integer[] arr = al.toArray(new Integer[0]);
-String[] sarr = list.toArray(new String[0]);
+List<String> names = Arrays.asList("A", "B");
+String[] sarr = names.toArray(new String[0]);
+
+// Convert to a primitive array when an int[] is needed:
+int[] primitive = al.stream().mapToInt(Integer::intValue).toArray();
 ```
 
 Replace, print, sublist:
