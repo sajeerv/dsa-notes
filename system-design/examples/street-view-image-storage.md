@@ -404,6 +404,50 @@ Keep capture metadata and asset metadata distinct. Capture metadata describes wh
 
 Index processed images by a geographic cell such as S2 or H3, then filter by time, heading, quality, and capture status. A nearby-image query searches the target cell and neighboring cells, calculates exact distance, and selects suitable imagery. The index stores references and searchable attributes, not image bytes.
 
+#### Recommended implementation
+
+For an initial version:
+
+1. Keep image bytes in object storage and capture/asset metadata in PostgreSQL.
+2. Store each capture coordinate as a spatial point and create a GiST index with PostGIS.
+3. Query by radius with `ST_DWithin`, then rank matches by exact distance, heading, image quality, time, and map match.
+4. Add ordinary database indexes for common filters such as `privacy_status`, `captured_at`, and road/map version. Add composite indexes only after checking real query plans.
+5. Publish captures to general search only after processing and privacy checks succeed; keep raw captures out of user-facing search.
+
+This provides one authoritative metadata system and avoids adding geohash/H3 plumbing before there is a measured need.
+
+#### Scaling the geospatial read path
+
+The sizing assumption in this design (100 million captures/day) averages about 1,157 captures/second, before peaks and retries. Benchmark realistic ingest and read patterns before selecting a distributed design.
+
+If a single Postgres/PostGIS deployment no longer meets write, storage, or query objectives:
+
+- Partition catalog data by capture time and/or region according to retention and query patterns.
+- Use a durable event stream to feed a horizontally scalable search/index projection.
+- Consider H3/S2 cells as routing keys for regional partitions or candidate groups, with additional time/shard dimensions to avoid hot cells.
+- Use a geo-capable search tier for high-volume nearby queries with many filters; retain a canonical catalog and rebuildable index.
+- Preserve precise coordinates and run an exact radius/distance check after cell-based candidate retrieval.
+- Measure skew: downtown cells can be far hotter than rural areas. Use adaptive cell resolution or secondary partitioning rather than relying on one fixed geohash prefix.
+
+Every maintained projection adds write fan-out, lag, repair logic, and operating cost. Add a cell index or dedicated geo-search database only to solve a measured need.
+
+Example flow:
+
+~~~text
+Image bytes ───────────────► Object storage
+
+Capture metadata ──────────► Authoritative catalog (Postgres/PostGIS initially)
+                                   │
+                                   ├─ spatial index for nearby candidate lookup
+                                   └─ outbox/event stream
+                                          │
+                                          ├─► optional search projection (Elasticsearch/OpenSearch)
+                                          └─► optional H3/S2 analytics or partition keys
+
+Nearby query ─► geo candidate search ─► exact distance + status/heading/quality filters
+                                      ─► capture_id / asset_id ─► authorized image read
+~~~
+
 ### Capacity and retention
 
 The sample assumption above yields about 100 TB/day of raw data. Before production, measure real image sizes, capture policies, compression, and coverage requirements. Use lifecycle rules for raw and derivative data, and define retention separately for each version. Restrict replication and backup to the required durability and recovery targets because each increases storage cost.

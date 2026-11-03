@@ -11,7 +11,7 @@ Many applications need questions answered by location:
 
 A plain latitude/longitude pair is data, not an efficient search structure. A naive radius query computes a distance from the requested point to every row, which becomes expensive as the dataset grows. A geospatial index prunes most rows and leaves a much smaller candidate set for exact checks.
 
-This note builds from coordinates to geohash and other spatial cells, then compares database indexes and tools, and ends with a recommendation for the Street View image system.
+This note builds from coordinates to geohash and other spatial cells, then compares database indexes and tools for proximity search.
 
 ## 2. Coordinate foundations
 
@@ -56,6 +56,21 @@ This is why a spatial index can be fast without pretending its approximation is 
 - **Discrete global grid systems:** assign a cell ID to each location at a chosen resolution, such as H3 or S2. Useful for grouping, sharding, aggregation, and candidate generation.
 
 A cell ID such as a geohash/H3/S2 index is often an **application-level spatial key**, not a replacement for a database's exact spatial index or distance predicate.
+
+### Concrete examples of geospatial indexes
+
+| Example | What it indexes / how it helps |
+| --- | --- |
+| PostGIS GiST (R-tree-style) | Bounding boxes in a tree; prunes regions for radius, intersection, and containment queries |
+| Quadtree | Recursively splits a 2D area into four smaller squares; useful for maps, games, and spatial partitioning |
+| Geohash | Encodes a rectangular grid cell as a base-32 string; prefixes support coarse grouping and range lookup |
+| H3 | Assigns hierarchical hexagon/pentagon cell IDs to Earth locations; useful for aggregation, joins, and cell-based routing |
+| S2 | Assigns hierarchical quadrilateral cell IDs on a sphere; useful for global indexing and covering regions with cells |
+| MongoDB `2dsphere` | Database-managed spherical geospatial index for GeoJSON locations and shapes |
+| Elasticsearch `geo_point` / `geo_shape` | Search index fields for nearby points, bounding boxes, polygons, and shapes |
+| Redis GEO | Geohash-encoded scores in a sorted set, queried by radius or box for a hot set of locations |
+
+These examples are related but not interchangeable. PostGIS GiST, MongoDB `2dsphere`, and Elasticsearch geo fields are database-managed indexes. Geohash, H3, and S2 are spatial cell/indexing systems that applications can use as keys or as part of a database/search design. Redis GEO is a data structure that uses geohash encoding internally.
 
 ## 4. Geohash
 
@@ -137,6 +152,10 @@ Good for: analytics by neighborhood, grouping and joining datasets by cell, spat
 ### S2
 
 S2 projects a cube onto a sphere and recursively subdivides it into hierarchical quadrilateral cells. Its cell IDs support parent/child traversal and region coverings. S2 is a strong option for global spatial indexing, adaptive region coverings, and partitioning. See the [S2 cell hierarchy guide](https://s2geometry.io/devguide/s2cell_hierarchy) and [S2 overview](https://s2geometry.io/about/overview.html).
+
+### S2 versus S3
+
+In geospatial indexing, the name commonly paired with H3 is **S2** (Google's spherical cell system), not S3. S2 and H3 both convert locations/regions into hierarchical cell IDs, with different cell shapes and hierarchy rules. [Amazon S3](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html) is a separate product: cloud object storage for files such as Street View image bytes. It is not a geospatial index and does not answer “what images are near this coordinate?” In the Street View architecture, S3 can store image files while PostGIS, a search index, or an H3/S2-backed index locates their metadata.
 
 ### Quick comparison
 
@@ -443,51 +462,7 @@ The database owns the index and executes the proximity query; the Java client se
 
 Keep client/server versions compatible and use the target engine's own client where the ecosystems differ. References: [MongoDB Java geo queries](https://www.mongodb.com/docs/drivers/java/sync/current/crud/query-documents/geo/), [Elasticsearch Java client](https://www.elastic.co/docs/reference/elasticsearch/clients/java), [OpenSearch Java client](https://docs.opensearch.org/latest/clients/java/), and [Redis Java clients](https://redis.io/docs/latest/develop/clients/jedis/).
 
-## 8. Recommended approach for Street View images
-
-### MVP / interview baseline
-
-1. Keep image bytes in object storage and capture/asset metadata in PostgreSQL.
-2. Store the original coordinates as a spatial point and create a GiST index with PostGIS.
-3. Query by radius with `ST_DWithin`, then calculate exact distance and rank by heading, image quality, time, and map match.
-4. Add ordinary database indexes for common filters such as `privacy_status`, `captured_at`, and road/map version. Use a composite index only after checking real query plans.
-5. Publish approved captures to search only after processing succeeds. Keep raw captures out of general search.
-
-This is easy to explain, gives one authoritative metadata system, and avoids premature geohash/H3 plumbing.
-
-### At very high scale
-
-The design assumption in the taxi note (100 million captures/day) represents about 1,157 captures/second averaged over a day, before peaks and retries. Benchmark using realistic ingest and read patterns before choosing a distributed design.
-
-If a single Postgres/PostGIS deployment no longer meets write, storage, or query objectives:
-
-- Partition catalog data by capture time and/or region according to retention and query patterns.
-- Use a durable event stream to feed a horizontally scalable search/index projection.
-- Consider H3/S2 cells as routing keys for regional partitions or candidate groups, with additional time/shard dimensions to avoid hot cells.
-- Use a geo-capable search tier for high-volume nearby queries with many filters; retain a canonical catalog and rebuildable index.
-- Preserve a precise coordinate and run an exact radius/distance check after cell-based candidate retrieval.
-- Measure skew: downtown cells can be far hotter than rural cells. Use adaptive cell resolution or secondary partitioning, not just a single fixed geohash prefix.
-
-Do not add both a geohash/H3 index and a dedicated geo-search database automatically. Every maintained projection adds write fan-out, lag, repair logic, and operational cost. Add one only to solve a measured need.
-
-### Architecture sketch
-
-~~~text
-Image bytes ───────────────► Object storage
-
-Capture metadata ──────────► Authoritative catalog (Postgres/PostGIS initially)
-                                   │
-                                   ├─ spatial index for nearby candidate lookup
-                                   └─ outbox/event stream
-                                          │
-                                          ├─► optional search projection (Elastic/OpenSearch)
-                                          └─► optional H3/S2 analytics/partition keys
-
-Nearby query ─► geo candidate search ─► exact distance + status/heading/quality filters
-                                      ─► capture_id / asset_id ─► authorized image read
-~~~
-
-## 9. Correctness, performance, and operational pitfalls
+## 8. Correctness, performance, and operational pitfalls
 
 - **Coordinate order:** standardize API field names and test with known points; `[longitude, latitude]` is common in GeoJSON.
 - **Units:** make radius units explicit (meters, kilometers, miles). Do not mix angular degrees and meters.
@@ -501,7 +476,7 @@ Nearby query ─► geo candidate search ─► exact distance + status/heading/
 - **Pagination:** use stable cursor/continuation semantics for large result sets; offset pagination can become expensive and results can shift as new captures arrive.
 - **Privacy:** precise location history is sensitive. Restrict access, minimize retention, audit queries, and keep raw image access separate from public derivatives.
 
-## 10. Learning path and practical exercises
+## 9. Learning path and practical exercises
 
 1. Manually encode two nearby coordinates into geohash prefixes and observe that shared prefixes indicate a shared coarse cell.
 2. Find two nearby points on opposite sides of a geohash boundary and show why neighbor cells must be searched.
@@ -510,9 +485,9 @@ Nearby query ─► geo candidate search ─► exact distance + status/heading/
 5. Compare an H3 cell cover with a true circular radius: count false-positive candidates, then apply exact distance.
 6. Try the same query with the number of points multiplied by 10, then measure index size, ingest throughput, and p95 query latency.
 
-## 11. Interview summary
+## 10. Interview summary
 
-A geospatial index quickly narrows a large dataset to candidate locations; an exact geometric calculation determines which candidates truly match. Geohash, H3, and S2 encode locations into hierarchical cells and are useful for bucketing, routing, and aggregation, but cell membership is not the same as exact proximity. For a first production version, PostgreSQL + PostGIS is a strong default for Street View metadata and nearby-image queries. Add a dedicated search tier or cell-based partitioning only when measured scale or query needs justify the extra complexity.
+A geospatial index quickly narrows a large dataset to candidate locations; an exact geometric calculation determines which candidates truly match. Geohash, H3, and S2 encode locations into hierarchical cells and are useful for bucketing, routing, and aggregation, but cell membership is not the same as exact proximity. PostgreSQL + PostGIS is a strong starting point when relational metadata and accurate spatial predicates belong together. Add a dedicated search tier or cell-based partitioning only when measured scale or query needs justify the extra complexity.
 
 ## References
 
@@ -522,6 +497,7 @@ A geospatial index quickly narrows a large dataset to candidate locations; an ex
 - [H3 indexing model](https://h3geo.org/docs/highlights/indexing/)
 - [S2 cell hierarchy](https://s2geometry.io/devguide/s2cell_hierarchy)
 - [S2 overview](https://s2geometry.io/about/overview.html)
+- [Amazon S3 overview](https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html)
 - [Elasticsearch geo queries](https://www.elastic.co/docs/reference/query-languages/query-dsl/geo-queries)
 - [Elasticsearch geo_point mapping](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/geo-point)
 - [MongoDB geospatial queries](https://www.mongodb.com/docs/manual/geospatial-queries/)
