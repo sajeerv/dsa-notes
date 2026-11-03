@@ -198,6 +198,54 @@ This is only an example. Decide whether each term is a hard filter or a ranking 
 
 Use when you want relational metadata, transactions, mature geometry types, exact spatial predicates, and SQL joins in one place. Add a GiST spatial index and use index-aware predicates such as `ST_DWithin`; for nearest-neighbor ordering, PostGIS supports the `<->` KNN operator in `ORDER BY`. See [PostGIS spatial index FAQ](https://postgis.net/documentation/faq/spatial-indexes/) and [spatial query documentation](https://www.postgis.net/docs/manual-dev/en/using_postgis_query.html).
 
+### What Postgres/PostGIS does under the hood
+
+When you create `USING GIST (location)`, PostgreSQL builds a GiST (Generalized Search Tree) index. GiST is an extensible index framework; PostGIS implements an R-tree-style spatial index on top of it. Spatial index entries summarize geometries with bounding boxes rather than storing a full searchable copy of every shape. This makes the index quick to traverse, but the box is an approximation of the actual spatial object. See [PostGIS index internals](https://postgis.net/docs/manual-dev/en/using_postgis_dbmanagement.html) and [PostgreSQL GiST behavior](https://www.postgresql.org/docs/17/gist.html).
+
+Conceptually, the tree looks like this:
+
+~~~text
+root bounding region
+  ├─ bounding region for a group of index pages
+  │    ├─ bounding box → table row pointer
+  │    └─ bounding box → table row pointer
+  └─ another bounding region
+       ├─ bounding box → table row pointer
+       └─ ...
+~~~
+
+For a radius query, the path is approximately:
+
+1. **Plan the query.** PostgreSQL estimates whether using GiST is cheaper than scanning the table. A tiny table or a query covering most of the world may use a sequential scan, and that can be the right plan.
+2. **Search the tree.** PostGIS derives an indexable spatial region that safely covers possible matches. GiST tests bounding regions and skips branches that cannot overlap the query region.
+3. **Fetch candidate rows.** Leaf entries point back to table rows. A bounding box can overlap the search area even when the actual point is outside the radius, so these are candidates rather than final answers.
+4. **Recheck the exact predicate.** `ST_DWithin` checks actual distance for candidates and removes false positives. For `geography`, the distance argument is in meters and the default uses spheroidal distance; the function includes an index-usable bounding-box comparison and a short-circuit distance calculation.
+5. **Sort and limit if requested.** In a radius query ordered by `ST_Distance`, distances are calculated for the survivors, then sorted and limited. A KNN `ORDER BY location <-> query_point LIMIT k` can use GiST-assisted nearest-neighbor ordering; verify distance semantics and the plan for the chosen spatial type.
+
+The key distinction: **GiST cheaply prunes regions; `ST_DWithin` supplies the correct radius result.** A spatial index alone does not skip every exact calculation. PostGIS documents that `ST_DWithin` is index-aware, while `ST_Distance(...) < radius` alone is not the preferred indexed radius filter. See [ST_DWithin](https://postgis.net/docs/ST_DWithin.html) and [PostGIS radius-search guidance](https://postgis.net/documentation/tips/st-dwithin/).
+
+### What is physically stored?
+
+There are two persistent PostgreSQL structures involved:
+
+- **The table (heap):** stores the actual row, including the full `geography(Point, 4326)` value, `capture_id`, status, and other metadata. For a point, the spatial value is compact binary data inside the row. The image bytes remain in object storage, not in this row.
+- **The GiST index:** is a separate PostgreSQL index relation, stored in PostgreSQL's normal database files. Its tree pages contain spatial summaries (bounding boxes) and references to child pages or table rows. It does not hold the image, nor is it a second full copy of each metadata row.
+
+At query time, PostgreSQL reads index and table pages from its shared buffer cache when available, otherwise from storage managed by the operating system and database. Updates to the table and index are protected by PostgreSQL's write-ahead log (WAL) for crash recovery and replication. These are PostgreSQL storage internals; application code still interacts with tables, indexes, and SQL rather than managing the files directly.
+
+In short: **the table stores the exact coordinates and metadata; the spatial index stores bounding-box summaries plus pointers that lead back to table rows.**
+
+To inspect what the database actually did:
+
+~~~sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT capture_id
+FROM capture
+WHERE ST_DWithin(location, :query_geography, :radius_meters);
+~~~
+
+Look for an index or bitmap index scan involving `capture_location_gix`, and compare rows removed by the exact filter with rows returned. A sequential scan is not automatically a problem: test with realistic table sizes, radii, and geographic density. Keep planner statistics current so its estimates reflect the data.
+
 Illustrative table and radius query (longitude first in `ST_MakePoint`):
 
 ~~~sql
@@ -230,17 +278,136 @@ LIMIT 100;
 
 This is a good default for learning and for an initial product. Confirm the actual query plan with `EXPLAIN (ANALYZE, BUFFERS)` and representative data. Partitioning and sharding add complexity; introduce them only when measured write volume, dataset size, or latency requires it.
 
+### Practical Java application stack
+
+For a Java service, a concrete starter stack is:
+
+- **PostgreSQL + PostGIS** for durable metadata, spatial storage, and indexed proximity queries.
+- **pgJDBC** to connect from Java.
+- **JDBC or Spring `JdbcTemplate`** to run the spatial SQL. Keep the spatial predicate in the database so the GiST index can reduce candidates before rows cross into the JVM.
+- **Flyway or Liquibase** to version the extension, table, and index migrations.
+- **JTS** only when Java code also needs geometry construction or planar operations such as intersections and buffers. JTS describes its geometry model as planar; do not calculate global meter distances by applying `Geometry.distance()` directly to raw longitude/latitude degrees. PostGIS `geography` is a better default for global point proximity.
+
+Example with Spring `JdbcTemplate` (assumes `location` is `geography(Point, 4326)`):
+
+~~~java
+String sql = """
+    SELECT capture_id,
+           ST_Distance(location,
+               ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) AS distance_meters
+    FROM capture
+    WHERE privacy_status = 'APPROVED'
+      AND ST_DWithin(location,
+          ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)
+    ORDER BY distance_meters
+    LIMIT ?
+    """;
+
+List<NearbyCapture> matches = jdbcTemplate.query(
+    sql,
+    (rs, rowNum) -> new NearbyCapture(
+        rs.getString("capture_id"),
+        rs.getDouble("distance_meters")),
+    longitude, latitude,   // MakePoint uses X=longitude, Y=latitude
+    longitude, latitude,
+    radiusMeters,
+    resultLimit);
+~~~
+
+Parameterize values rather than concatenating user input into SQL. Validate latitude, longitude, radius, and result limit at the API boundary. If using JPA/Hibernate, Hibernate Spatial can map spatial types, but native SQL is often the clearest way to begin with PostGIS-specific `geography`, `ST_DWithin`, and KNN behavior. See [Hibernate Spatial documentation](https://docs.hibernate.org/orm/8.0/userguide/html_single/) and the [JTS documentation](https://locationtech.github.io/jts/).
+
 ### Elasticsearch / OpenSearch
 
-Use when geo filters need to combine with text search, faceting, and relevance ranking, or when a dedicated search tier is needed. Elasticsearch supports `geo_point`, `geo_shape`, distance, bounding-box, polygon, and grid queries; see [Elasticsearch geo queries](https://www.elastic.co/docs/reference/query-languages/query-dsl/geo-queries). Treat the search index as a derived projection when another database is authoritative, and plan for refresh lag, reindexing, and reconciliation.
+Use when geo filters need to combine with text search, faceting, and relevance ranking, or when a dedicated search tier is needed. Elasticsearch supports `geo_point`, `geo_shape`, distance, bounding-box, polygon, and grid queries; see [geo-point mappings](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/geo-point) and [geo queries](https://www.elastic.co/docs/reference/query-languages/query-dsl/geo-queries). OpenSearch has a similar geo field/query model; check its documentation and client compatibility for the deployed version.
+
+Implementation outline:
+
+1. Create an index mapping with a `geo_point` field for a capture point; use `geo_shape` when the indexed value is a road, region, or other geometry.
+2. Index only query metadata needed for search: `capture_id`, coordinates, status, time, heading, quality, and perhaps road segment. Keep full image bytes and the authoritative asset catalog elsewhere.
+3. Use a `geo_distance` filter for radius membership and `_geo_distance` sort for nearest-first results. Combine with status/time filters in the same query.
+4. Have an outbox/event consumer update the search index after the source-of-truth catalog changes. Make updates idempotent and support rebuilding the index.
+
+Example mapping and query:
+
+~~~json
+PUT captures
+{
+  "mappings": {
+    "properties": {
+      "capture_id": { "type": "keyword" },
+      "captured_at": { "type": "date" },
+      "privacy_status": { "type": "keyword" },
+      "heading_degrees": { "type": "float" },
+      "location": { "type": "geo_point" }
+    }
+  }
+}
+
+GET captures/_search
+{
+  "size": 100,
+  "query": {
+    "bool": {
+      "filter": [
+        { "term": { "privacy_status": "APPROVED" } },
+        { "range": { "captured_at": { "gte": "now-90d" } } },
+        { "geo_distance": {
+            "distance": "50m",
+            "location": { "lat": 37.7749, "lon": -122.4194 }
+        } }
+      ]
+    }
+  },
+  "sort": [
+    { "_geo_distance": {
+        "location": { "lat": 37.7749, "lon": -122.4194 },
+        "order": "asc",
+        "unit": "m"
+    } }
+  ]
+}
+~~~
+
+Treat the search index as a derived projection when another database is authoritative, and plan for refresh lag, reindexing, and reconciliation. Avoid storing a signed image URL in the search document; generate authorized read access when serving the result.
 
 ### MongoDB
 
 Use when the application is already document-centric and proximity queries belong naturally beside document records. MongoDB's `2dsphere` index supports spherical proximity and geometry operations; see [MongoDB geospatial queries](https://www.mongodb.com/docs/manual/geospatial-queries/) and [2dsphere indexes](https://www.mongodb.com/docs/manual/core/indexes/index-types/geospatial/2dsphere/).
 
+Store the location as GeoJSON, with coordinates ordered `[longitude, latitude]`, then create a `2dsphere` index. A `$near` query with GeoJSON and a `2dsphere` index sorts results nearest to farthest; `$maxDistance` is measured in meters for GeoJSON.
+
+~~~javascript
+db.captures.createIndex({ location: "2dsphere" });
+
+db.captures.find({
+  privacy_status: "APPROVED",
+  location: {
+    $near: {
+      $geometry: {
+        type: "Point",
+        coordinates: [-122.4194, 37.7749]
+      },
+      $maxDistance: 50
+    }
+  }
+}).limit(100);
+~~~
+
+Use a compound index or query filters for frequently selective non-spatial fields only after checking the query plan and MongoDB's index rules. A geospatial operator has special-index constraints, so validate whether the desired additional filtering/sorting can be done in the same query or in a subsequent aggregation step.
+
 ### Redis GEO
 
-Use for a hot, often-changing set of live locations where very fast nearby lookup is useful, such as currently available vehicles. Redis provides `GEOADD` and `GEOSEARCH` for radius or box lookups; see [Redis geospatial commands](https://redis.io/docs/latest/develop/data-types/geospatial/). It is not the right sole archive for a durable multi-year image catalog. Persist canonical records elsewhere and treat Redis as a serving/cache layer when appropriate.
+Use for a hot, often-changing set of live locations where very fast nearby lookup is useful, such as currently available vehicles. Redis provides `GEOADD` and `GEOSEARCH` for radius or box lookups; see [Redis geospatial commands](https://redis.io/docs/latest/develop/data-types/geospatial/). The native GEO data type is designed for point/radius-style needs, not the broader shape and query features of a full spatial database.
+
+For example, maintain a set of currently available taxis. The member is a stable taxi ID; `GEOADD` updates that member's coordinates as it moves. `GEOSEARCH` returns IDs and optionally distance/coordinates:
+
+~~~text
+GEOADD taxis:available -122.4194 37.7749 taxi-481
+GEOADD taxis:available -122.4140 37.7790 taxi-782
+GEOSEARCH taxis:available FROMLONLAT -122.4194 37.7749 BYRADIUS 500 m ASC COUNT 100 WITHDIST WITHCOORD
+~~~
+
+Redis stores GEO members in a sorted set using a 52-bit geohash score; the sorted-set structure lets it scan score ranges corresponding to nearby grid cells, then discard points outside the requested shape. Its distance calculation assumes a sphere (Haversine), and the coordinate range is limited to roughly ±85.05° latitude. Those tradeoffs are often fine for nearby active vehicles, but verify accuracy and coverage requirements. The application can use returned IDs to fetch richer data from a hash/cache or the canonical database. Remove members when taxis go offline or become unavailable; do not let stale locations accumulate indefinitely. Redis is not the right sole archive for a durable multi-year image catalog. Persist canonical records elsewhere and treat Redis as a serving/cache layer when appropriate. See [Redis GEOADD internals and limits](https://redis.io/docs/latest/commands/GEOADD/).
 
 ### H3 / S2 libraries
 
@@ -260,6 +427,21 @@ For large historical aggregations (coverage by city/day, capture density, or fle
 | Small hot set of live moving entities | Redis GEO as a serving layer |
 | Cell aggregation, geographic partitioning, or spatial joins | H3 or S2 library, paired with storage/search |
 | Large historical scans and summaries | Spatial analytics/warehouse engine |
+
+### Java client libraries
+
+The database owns the index and executes the proximity query; the Java client sends the request and maps results. For this Java-learning project, use SQL/native geo queries first, then add an ORM only if it helps the rest of the application.
+
+| Backend | Java client / integration |
+| --- | --- |
+| PostgreSQL + PostGIS | pgJDBC; JDBC or Spring `JdbcTemplate` for `ST_DWithin` and KNN SQL |
+| MongoDB | Official Java Sync Driver; its `Filters` builder supports `near`, `nearSphere`, `geoWithin`, and `geoIntersects` |
+| Elasticsearch | Official Elasticsearch Java API Client |
+| OpenSearch | OpenSearch Java client; choose this client for OpenSearch deployments |
+| Redis | Jedis (synchronous) or Lettuce (async/reactive); call `GEOADD` / `GEOSEARCH` |
+| H3 | H3 Java bindings when the application needs H3 cell IDs in addition to a database |
+
+Keep client/server versions compatible and use the target engine's own client where the ecosystems differ. References: [MongoDB Java geo queries](https://www.mongodb.com/docs/drivers/java/sync/current/crud/query-documents/geo/), [Elasticsearch Java client](https://www.elastic.co/docs/reference/elasticsearch/clients/java), [OpenSearch Java client](https://docs.opensearch.org/latest/clients/java/), and [Redis Java clients](https://redis.io/docs/latest/develop/clients/jedis/).
 
 ## 8. Recommended approach for Street View images
 
@@ -341,5 +523,10 @@ A geospatial index quickly narrows a large dataset to candidate locations; an ex
 - [S2 cell hierarchy](https://s2geometry.io/devguide/s2cell_hierarchy)
 - [S2 overview](https://s2geometry.io/about/overview.html)
 - [Elasticsearch geo queries](https://www.elastic.co/docs/reference/query-languages/query-dsl/geo-queries)
+- [Elasticsearch geo_point mapping](https://www.elastic.co/docs/reference/elasticsearch/mapping-reference/geo-point)
 - [MongoDB geospatial queries](https://www.mongodb.com/docs/manual/geospatial-queries/)
+- [MongoDB Java driver geospatial queries](https://www.mongodb.com/docs/drivers/java/sync/current/crud/query-documents/geo/)
 - [Redis geospatial commands](https://redis.io/docs/latest/develop/data-types/geospatial/)
+- [Redis GEOADD internals and coordinate limits](https://redis.io/docs/latest/commands/GEOADD/)
+- [Elasticsearch Java API client](https://www.elastic.co/docs/reference/elasticsearch/clients/java)
+- [OpenSearch Java client](https://docs.opensearch.org/latest/clients/java/)
