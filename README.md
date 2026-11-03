@@ -6,6 +6,7 @@ Personal repo for LeetCode practice: Java solutions plus short notes on patterns
 
 ```
 notes/                 # Pattern cheatsheet, Java collections, study log
+system-design/         # System design interview notes and reference designs
 problems/              # One folder per problem, grouped by topic
   _template/           # Copy this when you start a new problem
   arrays/
@@ -17,8 +18,16 @@ Cheat sheets:
 
 - [`notes/java-collections.md`](notes/java-collections.md) — List / Set / Queue / Map Big-O, HashMap internals, conversions
 - [`notes/java-dsa-cheatsheet.md`](notes/java-dsa-cheatsheet.md) — strings, regex, graphs, DP, binary search templates
-- [`notes/tls-handshake.md`](notes/tls-handshake.md) — browser HTTPS/TLS handshake, explained step by step
 - [`notes/patterns.md`](notes/patterns.md) — short pattern reminders while solving
+
+## System design
+
+- [`system-design/keyword-search-posts-system-design.md`](system-design/keyword-search-posts-system-design.md) — keyword search for posts
+- [`system-design/street-view-image-storage.md`](system-design/street-view-image-storage.md) — taxi-captured Street View image ingestion, storage, and serving
+
+## Other technical notes
+
+- [`notes/tls-handshake.md`](notes/tls-handshake.md) — browser HTTPS/TLS handshake, explained step by step
 
 Each problem folder should look like:
 
