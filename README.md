@@ -5,8 +5,10 @@ Personal repo for LeetCode practice: Java solutions plus short notes on patterns
 ## Layout
 
 ```
-notes/                 # DSA references, pattern cheatsheet, study log, TLS notes
-system-design/         # System design interview notes and reference designs
+notes/                 # DSA references, pattern cheatsheet, study log
+system-design/
+  examples/             # End-to-end system design interview examples
+  concepts/             # Reusable concepts behind system designs
 problems/              # One folder per problem, grouped by topic
   _template/           # Copy this when you start a new problem
   arrays/
@@ -21,11 +23,15 @@ Cheat sheets:
 - [`notes/binary-search.md`](notes/binary-search.md) — binary search loop shapes, bounds, and common applications
 - [`notes/patterns.md`](notes/patterns.md) — short pattern reminders while solving
 
-## System design and related notes
+## System design examples
 
-- [`system-design/keyword-search-posts-system-design.md`](system-design/keyword-search-posts-system-design.md) — keyword search for posts
-- [`system-design/street-view-image-storage.md`](system-design/street-view-image-storage.md) — taxi-captured Street View image ingestion, storage, and serving
-- [`system-design/tls-handshake.md`](system-design/tls-handshake.md) — browser HTTPS/TLS handshake, explained step by step
+- [`system-design/examples/keyword-search-posts.md`](system-design/examples/keyword-search-posts.md) — keyword search for posts
+- [`system-design/examples/street-view-image-storage.md`](system-design/examples/street-view-image-storage.md) — taxi-captured Street View image ingestion, storage, and serving
+
+## Design concepts
+
+- [`system-design/concepts/tls-handshake.md`](system-design/concepts/tls-handshake.md) — browser HTTPS/TLS handshake, explained step by step
+- [`system-design/concepts/geospatial-search.md`](system-design/concepts/geospatial-search.md) — geohash, spatial indexes, proximity search, and database/tool choices
 
 Each problem folder should look like:
 
