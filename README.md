@@ -17,6 +17,7 @@ Cheat sheets:
 
 - [`notes/java-collections.md`](notes/java-collections.md) — List / Set / Queue / Map Big-O, HashMap internals, conversions
 - [`notes/java-dsa-cheatsheet.md`](notes/java-dsa-cheatsheet.md) — strings, regex, graphs, DP, binary search templates
+- [`notes/tls-handshake.md`](notes/tls-handshake.md) — browser HTTPS/TLS handshake, explained step by step
 - [`notes/patterns.md`](notes/patterns.md) — short pattern reminders while solving
 
 Each problem folder should look like:
