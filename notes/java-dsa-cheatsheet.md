@@ -1,6 +1,6 @@
 # Java DSA cheat sheet
 
-The rest of the old Pages “Java Cheat Sheets” file: language tricks, regex, graphs, DP, binary search. Collections Big-O lives in [`java-collections.md`](java-collections.md).
+Java language and DSA reference: strings, regex, graphs, DP, and concise binary search templates. See the detailed [binary search guide](binary-search.md) and [collections reference](java-collections.md) for more.
 
 ## Arrays and strings
 
