@@ -32,6 +32,7 @@ Cheat sheets:
 
 - [`system-design/concepts/tls-handshake.md`](system-design/concepts/tls-handshake.md) — browser HTTPS/TLS handshake, explained step by step
 - [`system-design/concepts/geospatial-search.md`](system-design/concepts/geospatial-search.md) — geohash, spatial indexes, proximity search, and database/tool choices
+- [`system-design/concepts/kafka.md`](system-design/concepts/kafka.md) — Kafka fundamentals, delivery semantics, Spring Kafka, and AWS DMS/MSK patterns
 
 Each problem folder should look like:
 
