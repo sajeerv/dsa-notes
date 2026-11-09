@@ -63,6 +63,11 @@ Putting the **coin loop outside** ensures each combination is counted once, rega
 
 Example: Combination Sum IV. `[1, 2]` and `[2, 1]` are different sequences.
 
+For `nums = [1, 2]`, `target = 3`:
+
+- **Coin Change II:** `{1+1+1, 1+2}` = 2 combinations. The orders `1+2` and `2+1` are equivalent.
+- **Combination Sum IV:** `[1,1,1]`, `[1,2]`, `[2,1]` = 3 sequences. Different orders count separately.
+
 ```java
 int[] dp = new int[target + 1];
 dp[0] = 1;
@@ -81,6 +86,8 @@ return dp[target];
 **Time:** `O(target × numberOfCoins)` · **Space:** `O(target)`
 
 Putting the **amount loop outside** counts ways to reach each amount by choosing the last coin, so different orders count separately. Watch for integer overflow if the number of sequences can be large.
+
+**Memory aid:** coin loop outside → combinations; amount loop outside → ordered sequences.
 
 ## 4. Reachability (unlimited supply)
 
