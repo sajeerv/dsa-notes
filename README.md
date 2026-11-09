@@ -21,6 +21,7 @@ Cheat sheets:
 - [`notes/java-collections.md`](notes/java-collections.md) — List / Set / Queue / Map Big-O, HashMap internals, conversions
 - [`notes/java-dsa-cheatsheet.md`](notes/java-dsa-cheatsheet.md) — strings, regex, graphs, DP, binary search templates
 - [`notes/binary-search.md`](notes/binary-search.md) — binary search loop shapes, bounds, and common applications
+- [`notes/coin-change.md`](notes/coin-change.md) — coin change DP variants, loop order, and supply constraints
 - [`notes/patterns.md`](notes/patterns.md) — short pattern reminders while solving
 
 ## System design examples
@@ -33,6 +34,7 @@ Cheat sheets:
 - [`system-design/concepts/tls-handshake.md`](system-design/concepts/tls-handshake.md) — browser HTTPS/TLS handshake, explained step by step
 - [`system-design/concepts/geospatial-search.md`](system-design/concepts/geospatial-search.md) — geohash, spatial indexes, proximity search, and database/tool choices
 - [`system-design/concepts/kafka.md`](system-design/concepts/kafka.md) — Kafka fundamentals, delivery semantics, Spring Kafka, and AWS DMS/MSK patterns
+- [`system-design/concepts/idempotency.md`](system-design/concepts/idempotency.md) — safe retries, idempotency keys, database deduplication, message consumers, and distributed side effects
 
 Each problem folder should look like:
 
