@@ -35,6 +35,7 @@ Cheat sheets:
 - [`system-design/concepts/geospatial-search.md`](system-design/concepts/geospatial-search.md) — geohash, spatial indexes, proximity search, and database/tool choices
 - [`system-design/concepts/kafka.md`](system-design/concepts/kafka.md) — Kafka fundamentals, delivery semantics, Spring Kafka, and AWS DMS/MSK patterns
 - [`system-design/concepts/idempotency.md`](system-design/concepts/idempotency.md) — safe retries, idempotency keys, database deduplication, message consumers, and distributed side effects
+- [`system-design/concepts/websockets.md`](system-design/concepts/websockets.md) — WebSocket lifecycle, alternatives, scaling, authentication, and implementation stacks
 
 Each problem folder should look like:
 
