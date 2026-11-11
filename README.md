@@ -36,6 +36,7 @@ Cheat sheets:
 - [`system-design/concepts/kafka.md`](system-design/concepts/kafka.md) — Kafka fundamentals, delivery semantics, Spring Kafka, and AWS DMS/MSK patterns
 - [`system-design/concepts/idempotency.md`](system-design/concepts/idempotency.md) — safe retries, idempotency keys, database deduplication, message consumers, and distributed side effects
 - [`system-design/concepts/websockets.md`](system-design/concepts/websockets.md) — WebSocket lifecycle, alternatives, scaling, authentication, and implementation stacks
+- [`system-design/concepts/proxy-servers.md`](system-design/concepts/proxy-servers.md) — forward and reverse proxies, related components, common features, and vendor options
 
 Each problem folder should look like:
 
